@@ -1,0 +1,112 @@
+package main
+
+import "base:runtime"
+import "core:c"
+import "core:fmt"
+import "core:os"
+import "vendor:OpenGL"
+import "vendor:glfw"
+
+Vector3 :: [3]f32
+
+vertex_shader_source_path :: "vertex_shader.vert"
+fragment_shader_source_path :: "fragment_shader.frag"
+
+
+main :: proc() {
+
+	if !glfw.Init() do panic("Exit Failure")
+	defer glfw.Terminate()
+
+	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 3)
+	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 3)
+	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+	window := glfw.CreateWindow(800, 600, "learning opengl", nil, nil)
+	if window == nil do panic("Exit Failure")
+	defer glfw.DestroyWindow(window)
+	glfw.MakeContextCurrent(window)
+	OpenGL.load_up_to(3, 3, proc(p: rawptr, name: cstring) {
+		(cast(^rawptr)p)^ = glfw.GetProcAddress(name)
+	})
+	OpenGL.Viewport(0, 0, 800, 600)
+	glfw.SetFramebufferSizeCallback(window, frame_buffer_size_callback)
+
+	for !glfw.WindowShouldClose(window) {
+		process_input(window)
+
+		OpenGL.ClearColor(0.2, 0.3, 0.3, 1)
+		OpenGL.Clear(OpenGL.COLOR_BUFFER_BIT)
+
+		vertices := [?]Vector3{{-0.5, -0.5, 0}, {0.5, -0.5, 0}, {0, 0.5, 0}}
+		vbo: u32
+		OpenGL.GenBuffers(1, &vbo)
+		OpenGL.BindBuffer(OpenGL.ARRAY_BUFFER, vbo)
+		OpenGL.BufferData(OpenGL.ARRAY_BUFFER, size_of(vertices), &vertices, OpenGL.STATIC_DRAW)
+
+		vertex_shader := OpenGL.CreateShader(OpenGL.VERTEX_SHADER)
+		defer OpenGL.DeleteShader(vertex_shader)
+		vertex_shader_source_cstring := get_source_cstring(vertex_shader_source_path)
+		OpenGL.ShaderSource(vertex_shader, 1, &vertex_shader_source_cstring, nil)
+		OpenGL.CompileShader(vertex_shader)
+		check_shaderiv(vertex_shader)
+
+		fragment_shader := OpenGL.CreateShader(OpenGL.FRAGMENT_SHADER)
+		defer OpenGL.DeleteShader(fragment_shader)
+		fragment_shader_source_cstring := get_source_cstring(fragment_shader_source_path)
+		OpenGL.ShaderSource(fragment_shader, 1, &fragment_shader_source_cstring, nil)
+		OpenGL.CompileShader(fragment_shader)
+		check_shaderiv(fragment_shader)
+
+		shader_program := OpenGL.CreateProgram()
+		OpenGL.AttachShader(shader_program, vertex_shader)
+		OpenGL.AttachShader(shader_program, fragment_shader)
+		OpenGL.LinkProgram(shader_program)
+		OpenGL.UseProgram(shader_program)
+		check_programiv(shader_program)
+
+		glfw.PollEvents()
+		glfw.SwapBuffers(window)
+	}
+}
+
+process_input :: proc(window: glfw.WindowHandle) {
+	if glfw.GetKey(window, glfw.KEY_ESCAPE) == glfw.PRESS {
+		glfw.SetWindowShouldClose(window, true)
+	}
+}
+
+check_shaderiv :: proc(shader: u32) {
+	success: i32
+	info_log: [512]u8
+	OpenGL.GetShaderiv(shader, OpenGL.COMPILE_STATUS, &success)
+	if success == 0 {
+		OpenGL.GetShaderInfoLog(shader, 512, nil, transmute([^]u8)&info_log)
+		fmt.eprintln("ERROR::SHADER::COMPILATION_FAILED\n", transmute(cstring)&info_log)
+		panic("")
+	}
+}
+
+check_programiv :: proc(program: u32) {
+	success: i32
+	info_log: [512]u8
+	OpenGL.GetProgramiv(program, OpenGL.LINK_STATUS, &success)
+	if success == 0 {
+		OpenGL.GetProgramInfoLog(program, 512, nil, transmute([^]u8)&info_log)
+		fmt.eprintln("ERROR::PROGRAM::LINK_FAIL\n", transmute(cstring)&info_log)
+		panic("")
+	}
+}
+
+get_source_cstring :: proc(source_path: string) -> (source_cstring: cstring) {
+	source :=
+		os.read_entire_file(source_path, runtime.default_allocator()) or_else panic(
+			"failed to read source file",
+		)
+	source_cstring = transmute(cstring)raw_data(source)
+	return source_cstring
+}
+
+frame_buffer_size_callback :: proc "c" (window: glfw.WindowHandle, width, height: c.int) {
+	OpenGL.Viewport(0, 0, width, height)
+}
+
