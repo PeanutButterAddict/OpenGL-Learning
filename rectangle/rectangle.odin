@@ -1,4 +1,4 @@
-package main
+package rectangle
 
 import "base:runtime"
 import "core:c"
@@ -8,6 +8,7 @@ import "vendor:OpenGL"
 import "vendor:glfw"
 
 Vector3 :: [3]f32
+Triangle :: [3]u32
 
 vertex_shader_source_path :: "vertex_shader.vert"
 fragment_shader_source_path :: "fragment_shader.frag"
@@ -52,25 +53,44 @@ main :: proc() {
 	check_programiv(shader_program)
 
 
-	vertices := [?]Vector3{{-0.5, -0.5, 0}, {0.5, -0.5, 0}, {0, 0.5, 0}}
-	vbo, vao: u32
+	vertices := [?]Vector3{{0.5, 0.5, 0}, {0.5, -0.5, 0}, {-0.5, -0.5, 0}, {-0.5, 0.5, 0}}
+	indices := [?]Triangle{{0, 1, 3}, {1, 2, 3}}
+	vao, vbo, ebo: u32
 	OpenGL.GenVertexArrays(1, &vao)
 	defer OpenGL.DeleteVertexArrays(1, &vao)
 	OpenGL.GenBuffers(1, &vbo)
 	defer OpenGL.DeleteBuffers(1, &vbo)
+	OpenGL.GenBuffers(1, &ebo)
+	defer OpenGL.DeleteBuffers(1, &ebo)
 
-	// NOTE: Bind the Vertex Array Object first,
-	// then bind and set vertex buffer(s),
-	// and then configure vertex attributes(s).
-	OpenGL.BindVertexArray(vao)
-	defer OpenGL.BindVertexArray(0)
-	OpenGL.BindBuffer(OpenGL.ARRAY_BUFFER, vbo)
-	defer OpenGL.BindBuffer(OpenGL.ARRAY_BUFFER, 0)
-	OpenGL.BufferData(OpenGL.ARRAY_BUFFER, size_of(vertices), &vertices, OpenGL.STATIC_DRAW)
-	OpenGL.VertexAttribPointer(0, 3, OpenGL.FLOAT, OpenGL.FALSE, size_of(Vector3), cast(uintptr)0)
-	OpenGL.EnableVertexAttribArray(0)
+	{
+		// NOTE: Bind the Vertex Array Object first,
+		// then bind and set vertex buffer(s),
+		// and then configure vertex attributes(s).
+		OpenGL.BindVertexArray(vao)
+		defer OpenGL.BindVertexArray(0)
+		OpenGL.BindBuffer(OpenGL.ARRAY_BUFFER, vbo)
+		OpenGL.BufferData(OpenGL.ARRAY_BUFFER, size_of(vertices), &vertices, OpenGL.STATIC_DRAW)
+		OpenGL.BindBuffer(OpenGL.ELEMENT_ARRAY_BUFFER, ebo)
+		OpenGL.BufferData(
+			OpenGL.ELEMENT_ARRAY_BUFFER,
+			size_of(indices),
+			&indices,
+			OpenGL.STATIC_DRAW,
+		)
 
-	// OpenGL.PolygonMode(OpenGL.FRONT_AND_BACK, OpenGL.LINE)
+		OpenGL.VertexAttribPointer(
+			0,
+			3,
+			OpenGL.FLOAT,
+			OpenGL.FALSE,
+			size_of(Vector3),
+			cast(uintptr)0,
+		)
+		OpenGL.EnableVertexAttribArray(0)
+	}
+
+	OpenGL.PolygonMode(OpenGL.FRONT_AND_BACK, OpenGL.LINE)
 
 	for !glfw.WindowShouldClose(window) {
 		process_input(window)
@@ -79,11 +99,14 @@ main :: proc() {
 		OpenGL.Clear(OpenGL.COLOR_BUFFER_BIT)
 
 		OpenGL.UseProgram(shader_program)
-		// NOTE: Seeing as we only have a single VAO there's no need to bind and unbind it every time
-		//
-		// OpenGL.BindVertexArray(vao)
-		// defer OpenGL.BindVertexArray(0)
-		OpenGL.DrawArrays(OpenGL.TRIANGLES, 0, 3)
+		OpenGL.BindVertexArray(vao)
+		defer OpenGL.BindVertexArray(0)
+		OpenGL.DrawElements(
+			OpenGL.TRIANGLES,
+			len(indices) * len(Triangle),
+			OpenGL.UNSIGNED_INT,
+			transmute(rawptr)cast(uintptr)0,
+		)
 
 		glfw.PollEvents()
 		glfw.SwapBuffers(window)
