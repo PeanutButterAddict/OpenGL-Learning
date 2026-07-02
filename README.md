@@ -1,0 +1,2 @@
+cd rectangle
+odin run .
