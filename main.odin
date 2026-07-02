@@ -25,11 +25,52 @@ main :: proc() {
 	if window == nil do panic("Exit Failure")
 	defer glfw.DestroyWindow(window)
 	glfw.MakeContextCurrent(window)
+	glfw.SetFramebufferSizeCallback(window, frame_buffer_size_callback)
 	OpenGL.load_up_to(3, 3, proc(p: rawptr, name: cstring) {
 		(cast(^rawptr)p)^ = glfw.GetProcAddress(name)
 	})
-	OpenGL.Viewport(0, 0, 800, 600)
-	glfw.SetFramebufferSizeCallback(window, frame_buffer_size_callback)
+
+	vertex_shader := OpenGL.CreateShader(OpenGL.VERTEX_SHADER)
+	defer OpenGL.DeleteShader(vertex_shader)
+	vertex_shader_source_cstring := get_source_cstring(vertex_shader_source_path)
+	OpenGL.ShaderSource(vertex_shader, 1, &vertex_shader_source_cstring, nil)
+	OpenGL.CompileShader(vertex_shader)
+	check_shaderiv(vertex_shader)
+
+	fragment_shader := OpenGL.CreateShader(OpenGL.FRAGMENT_SHADER)
+	defer OpenGL.DeleteShader(fragment_shader)
+	fragment_shader_source_cstring := get_source_cstring(fragment_shader_source_path)
+	OpenGL.ShaderSource(fragment_shader, 1, &fragment_shader_source_cstring, nil)
+	OpenGL.CompileShader(fragment_shader)
+	check_shaderiv(fragment_shader)
+
+	shader_program := OpenGL.CreateProgram()
+	defer OpenGL.DeleteProgram(shader_program)
+	OpenGL.AttachShader(shader_program, vertex_shader)
+	OpenGL.AttachShader(shader_program, fragment_shader)
+	OpenGL.LinkProgram(shader_program)
+	check_programiv(shader_program)
+
+
+	vertices := [?]Vector3{{-0.5, -0.5, 0}, {0.5, -0.5, 0}, {0, 0.5, 0}}
+	vbo, vao: u32
+	OpenGL.GenVertexArrays(1, &vao)
+	defer OpenGL.DeleteVertexArrays(1, &vao)
+	OpenGL.GenBuffers(1, &vbo)
+	defer OpenGL.DeleteBuffers(1, &vbo)
+
+	// NOTE: Bind the Vertex Array Object first,
+	// then bind and set vertex buffer(s),
+	// and then configure vertex attributes(s).
+	OpenGL.BindVertexArray(vao)
+	defer OpenGL.BindVertexArray(0)
+	OpenGL.BindBuffer(OpenGL.ARRAY_BUFFER, vbo)
+	defer OpenGL.BindBuffer(OpenGL.ARRAY_BUFFER, 0)
+	OpenGL.BufferData(OpenGL.ARRAY_BUFFER, size_of(vertices), &vertices, OpenGL.STATIC_DRAW)
+	OpenGL.VertexAttribPointer(0, 3, OpenGL.FLOAT, OpenGL.FALSE, size_of(Vector3), cast(uintptr)0)
+	OpenGL.EnableVertexAttribArray(0)
+
+	// OpenGL.PolygonMode(OpenGL.FRONT_AND_BACK, OpenGL.LINE)
 
 	for !glfw.WindowShouldClose(window) {
 		process_input(window)
@@ -37,32 +78,12 @@ main :: proc() {
 		OpenGL.ClearColor(0.2, 0.3, 0.3, 1)
 		OpenGL.Clear(OpenGL.COLOR_BUFFER_BIT)
 
-		vertices := [?]Vector3{{-0.5, -0.5, 0}, {0.5, -0.5, 0}, {0, 0.5, 0}}
-		vbo: u32
-		OpenGL.GenBuffers(1, &vbo)
-		OpenGL.BindBuffer(OpenGL.ARRAY_BUFFER, vbo)
-		OpenGL.BufferData(OpenGL.ARRAY_BUFFER, size_of(vertices), &vertices, OpenGL.STATIC_DRAW)
-
-		vertex_shader := OpenGL.CreateShader(OpenGL.VERTEX_SHADER)
-		defer OpenGL.DeleteShader(vertex_shader)
-		vertex_shader_source_cstring := get_source_cstring(vertex_shader_source_path)
-		OpenGL.ShaderSource(vertex_shader, 1, &vertex_shader_source_cstring, nil)
-		OpenGL.CompileShader(vertex_shader)
-		check_shaderiv(vertex_shader)
-
-		fragment_shader := OpenGL.CreateShader(OpenGL.FRAGMENT_SHADER)
-		defer OpenGL.DeleteShader(fragment_shader)
-		fragment_shader_source_cstring := get_source_cstring(fragment_shader_source_path)
-		OpenGL.ShaderSource(fragment_shader, 1, &fragment_shader_source_cstring, nil)
-		OpenGL.CompileShader(fragment_shader)
-		check_shaderiv(fragment_shader)
-
-		shader_program := OpenGL.CreateProgram()
-		OpenGL.AttachShader(shader_program, vertex_shader)
-		OpenGL.AttachShader(shader_program, fragment_shader)
-		OpenGL.LinkProgram(shader_program)
 		OpenGL.UseProgram(shader_program)
-		check_programiv(shader_program)
+		// NOTE: Seeing as we only have a single VAO there's no need to bind and unbind it every time
+		//
+		// OpenGL.BindVertexArray(vao)
+		// defer OpenGL.BindVertexArray(0)
+		OpenGL.DrawArrays(OpenGL.TRIANGLES, 0, 3)
 
 		glfw.PollEvents()
 		glfw.SwapBuffers(window)
