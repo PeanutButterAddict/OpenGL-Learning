@@ -1,4 +1,4 @@
-``sh
-cd rectangle
-odin run .
-``
+```sh
+cd rectangle 
+odin run . 
+```
