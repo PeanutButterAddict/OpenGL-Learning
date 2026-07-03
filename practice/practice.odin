@@ -1,14 +1,21 @@
-package rectangle
+package practice
 
 import "base:runtime"
 import "core:c"
 import "core:fmt"
 import "core:os"
+import "core:reflect"
 import "vendor:OpenGL"
 import "vendor:glfw"
 
-Vector3 :: [3]f32
 Triangle :: [3]u32
+Vector3 :: [3]f32
+Color :: [3]f32
+Vertex :: struct {
+	position: Vector3,
+	color:    Color,
+}
+
 
 vertex_shader_source_path :: "vertex_shader.vert"
 fragment_shader_source_path :: "fragment_shader.frag"
@@ -54,7 +61,12 @@ main :: proc() {
 	check_programiv(shader_program)
 
 
-	vertices := [?]Vector3{{0.5, 0.5, 0}, {0.5, -0.5, 0}, {-0.5, -0.5, 0}, {-0.5, 0.5, 0}}
+	vertices := [?]Vertex {
+		{position = {0.5, 0.5, 0}, color = {1, 0, 0}},
+		{position = {0.5, -0.5, 0}, color = {0, 1, 0}},
+		{position = {-0.5, -0.5, 0}, color = {0, 0, 1}},
+		{position = {-0.5, 0.5, 0}, color = {0, 0, 0}},
+	}
 	indices := [?]Triangle{{0, 1, 3}, {1, 2, 3}}
 	vao, vbo, ebo: u32
 	OpenGL.GenVertexArrays(1, &vao)
@@ -80,24 +92,37 @@ main :: proc() {
 			OpenGL.STATIC_DRAW,
 		)
 		pos_attrib := transmute(u32)OpenGL.GetAttribLocation(shader_program, "pos")
+		OpenGL.EnableVertexAttribArray(pos_attrib)
 		OpenGL.VertexAttribPointer(
 			pos_attrib,
 			3,
 			OpenGL.FLOAT,
 			OpenGL.FALSE,
-			size_of(Vector3),
-			cast(uintptr)0,
+			size_of(Vertex),
+			reflect.struct_field_at(Vertex, 0).offset,
 		)
-		OpenGL.EnableVertexAttribArray(pos_attrib)
+		color_attrib := transmute(u32)OpenGL.GetAttribLocation(shader_program, "color")
+		OpenGL.EnableVertexAttribArray(color_attrib)
+		OpenGL.VertexAttribPointer(
+			color_attrib,
+			3,
+			OpenGL.FLOAT,
+			OpenGL.FALSE,
+			size_of(Vertex),
+			reflect.struct_field_at(Vertex, 1).offset,
+		)
 	}
 
-	OpenGL.PolygonMode(OpenGL.FRONT_AND_BACK, OpenGL.LINE)
+	// new_color_uniform := OpenGL.GetUniformLocation(shader_program, "new_color")
+	// OpenGL.PolygonMode(OpenGL.FRONT_AND_BACK, OpenGL.LINE)
 
 	for !glfw.WindowShouldClose(window) {
 		process_input(window)
 
 		OpenGL.ClearColor(0.2, 0.3, 0.3, 1)
 		OpenGL.Clear(OpenGL.COLOR_BUFFER_BIT)
+
+		// OpenGL.Uniform3f(new_color_uniform, 1, 0, 0)
 
 		OpenGL.UseProgram(shader_program)
 		OpenGL.BindVertexArray(vao)
@@ -121,10 +146,10 @@ process_input :: proc(window: glfw.WindowHandle) {
 }
 
 check_shaderiv :: proc(shader: u32) {
-	success: i32
+	status: i32
 	info_log: [512]u8
-	OpenGL.GetShaderiv(shader, OpenGL.COMPILE_STATUS, &success)
-	if success == 0 {
+	OpenGL.GetShaderiv(shader, OpenGL.COMPILE_STATUS, &status)
+	if status == 0 {
 		OpenGL.GetShaderInfoLog(shader, 512, nil, transmute([^]u8)&info_log)
 		fmt.eprintln("ERROR::SHADER::COMPILATION_FAILED\n", transmute(cstring)&info_log)
 		panic("")
@@ -132,10 +157,10 @@ check_shaderiv :: proc(shader: u32) {
 }
 
 check_programiv :: proc(program: u32) {
-	success: i32
+	status: i32
 	info_log: [512]u8
-	OpenGL.GetProgramiv(program, OpenGL.LINK_STATUS, &success)
-	if success == 0 {
+	OpenGL.GetProgramiv(program, OpenGL.LINK_STATUS, &status)
+	if status == 0 {
 		OpenGL.GetProgramInfoLog(program, 512, nil, transmute([^]u8)&info_log)
 		fmt.eprintln("ERROR::PROGRAM::LINK_FAIL\n", transmute(cstring)&info_log)
 		panic("")
