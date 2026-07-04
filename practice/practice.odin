@@ -1,25 +1,27 @@
 package practice
 
-import "base:runtime"
 import "core:c"
-import "core:fmt"
-import "core:os"
 import "core:reflect"
+
 import "vendor:OpenGL"
 import "vendor:glfw"
 
 Triangle :: [3]u32
-Vector3 :: [3]f32
-Color :: [3]f32
+Vector3 :: distinct [3]f32
+Color :: distinct [3]f32
 Vertex :: struct {
-	position: Vector3,
-	color:    Color,
+	pos:   Vector3,
+	color: Color,
 }
 
+vshader_source_path :: "vshader.vert"
+fshader_source_path :: "fshader.frag"
 
-vertex_shader_source_path :: "vertex_shader.vert"
-fragment_shader_source_path :: "fragment_shader.frag"
-
+vertices := [?]Vertex {
+	{pos = {0.5, -0.5, 0}, color = {1, 0, 0}},
+	{pos = {-0.5, -0.5, 0}, color = {0, 1, 0}},
+	{pos = {0, 0.5, 0}, color = {0, 0, 1}},
+}
 
 main :: proc() {
 
@@ -33,87 +35,43 @@ main :: proc() {
 	if window == nil do panic("Exit Failure")
 	defer glfw.DestroyWindow(window)
 	glfw.MakeContextCurrent(window)
-	glfw.SetFramebufferSizeCallback(window, frame_buffer_size_callback)
-	OpenGL.load_up_to(3, 3, proc(p: rawptr, name: cstring) {
-		(cast(^rawptr)p)^ = glfw.GetProcAddress(name)
-	})
+	glfw.SetFramebufferSizeCallback(window, set_frame_buffer_size_callback)
+	OpenGL.load_up_to(3, 3, set_proc_address_callback)
 
-	vertex_shader := OpenGL.CreateShader(OpenGL.VERTEX_SHADER)
-	defer OpenGL.DeleteShader(vertex_shader)
-	vertex_shader_source_cstring := get_source_cstring(vertex_shader_source_path)
-	OpenGL.ShaderSource(vertex_shader, 1, &vertex_shader_source_cstring, nil)
-	OpenGL.CompileShader(vertex_shader)
-	check_shaderiv(vertex_shader)
+	shader_program := make_shader_program(vshader_source_path, fshader_source_path)
+	defer delete_shader_program(shader_program)
 
-	fragment_shader := OpenGL.CreateShader(OpenGL.FRAGMENT_SHADER)
-	defer OpenGL.DeleteShader(fragment_shader)
-	fragment_shader_source_cstring := get_source_cstring(fragment_shader_source_path)
-	OpenGL.ShaderSource(fragment_shader, 1, &fragment_shader_source_cstring, nil)
-	OpenGL.CompileShader(fragment_shader)
-	check_shaderiv(fragment_shader)
-
-	shader_program := OpenGL.CreateProgram()
-	defer OpenGL.DeleteProgram(shader_program)
-	OpenGL.AttachShader(shader_program, vertex_shader)
-	OpenGL.AttachShader(shader_program, fragment_shader)
-	OpenGL.BindFragDataLocation(shader_program, 0, "frag_color")
-	OpenGL.LinkProgram(shader_program)
-	check_programiv(shader_program)
-
-
-	vertices := [?]Vertex {
-		{position = {0.5, 0.5, 0}, color = {1, 0, 0}},
-		{position = {0.5, -0.5, 0}, color = {0, 1, 0}},
-		{position = {-0.5, -0.5, 0}, color = {0, 0, 1}},
-		{position = {-0.5, 0.5, 0}, color = {0, 0, 0}},
-	}
-	indices := [?]Triangle{{0, 1, 3}, {1, 2, 3}}
-	vao, vbo, ebo: u32
+	vao, vbo: u32
 	OpenGL.GenVertexArrays(1, &vao)
 	defer OpenGL.DeleteVertexArrays(1, &vao)
 	OpenGL.GenBuffers(1, &vbo)
 	defer OpenGL.DeleteBuffers(1, &vbo)
-	OpenGL.GenBuffers(1, &ebo)
-	defer OpenGL.DeleteBuffers(1, &ebo)
 
 	{
-		// NOTE: Bind the Vertex Array Object first,
-		// then bind and set vertex buffer(s),
-		// and then configure vertex attributes(s).
 		OpenGL.BindVertexArray(vao)
 		defer OpenGL.BindVertexArray(0)
 		OpenGL.BindBuffer(OpenGL.ARRAY_BUFFER, vbo)
 		OpenGL.BufferData(OpenGL.ARRAY_BUFFER, size_of(vertices), &vertices, OpenGL.STATIC_DRAW)
-		OpenGL.BindBuffer(OpenGL.ELEMENT_ARRAY_BUFFER, ebo)
-		OpenGL.BufferData(
-			OpenGL.ELEMENT_ARRAY_BUFFER,
-			size_of(indices),
-			&indices,
-			OpenGL.STATIC_DRAW,
-		)
-		pos_attrib := transmute(u32)OpenGL.GetAttribLocation(shader_program, "pos")
-		OpenGL.EnableVertexAttribArray(pos_attrib)
 		OpenGL.VertexAttribPointer(
-			pos_attrib,
-			3,
+			0,
+			len(vertices[0].pos),
 			OpenGL.FLOAT,
 			OpenGL.FALSE,
 			size_of(Vertex),
 			reflect.struct_field_at(Vertex, 0).offset,
 		)
-		color_attrib := transmute(u32)OpenGL.GetAttribLocation(shader_program, "color")
-		OpenGL.EnableVertexAttribArray(color_attrib)
+		OpenGL.EnableVertexAttribArray(0)
 		OpenGL.VertexAttribPointer(
-			color_attrib,
-			3,
+			1,
+			len(vertices[0].color),
 			OpenGL.FLOAT,
 			OpenGL.FALSE,
 			size_of(Vertex),
 			reflect.struct_field_at(Vertex, 1).offset,
 		)
+		OpenGL.EnableVertexAttribArray(1)
 	}
 
-	// new_color_uniform := OpenGL.GetUniformLocation(shader_program, "new_color")
 	// OpenGL.PolygonMode(OpenGL.FRONT_AND_BACK, OpenGL.LINE)
 
 	for !glfw.WindowShouldClose(window) {
@@ -122,17 +80,12 @@ main :: proc() {
 		OpenGL.ClearColor(0.2, 0.3, 0.3, 1)
 		OpenGL.Clear(OpenGL.COLOR_BUFFER_BIT)
 
-		// OpenGL.Uniform3f(new_color_uniform, 1, 0, 0)
-
 		OpenGL.UseProgram(shader_program)
 		OpenGL.BindVertexArray(vao)
 		defer OpenGL.BindVertexArray(0)
-		OpenGL.DrawElements(
-			OpenGL.TRIANGLES,
-			len(indices) * len(Triangle),
-			OpenGL.UNSIGNED_INT,
-			transmute(rawptr)cast(uintptr)0,
-		)
+
+
+		OpenGL.DrawArrays(OpenGL.TRIANGLES, 0, len(vertices))
 
 		glfw.PollEvents()
 		glfw.SwapBuffers(window)
@@ -145,38 +98,13 @@ process_input :: proc(window: glfw.WindowHandle) {
 	}
 }
 
-check_shaderiv :: proc(shader: u32) {
-	status: i32
-	info_log: [512]u8
-	OpenGL.GetShaderiv(shader, OpenGL.COMPILE_STATUS, &status)
-	if status == 0 {
-		OpenGL.GetShaderInfoLog(shader, 512, nil, transmute([^]u8)&info_log)
-		fmt.eprintln("ERROR::SHADER::COMPILATION_FAILED\n", transmute(cstring)&info_log)
-		panic("")
-	}
-}
 
-check_programiv :: proc(program: u32) {
-	status: i32
-	info_log: [512]u8
-	OpenGL.GetProgramiv(program, OpenGL.LINK_STATUS, &status)
-	if status == 0 {
-		OpenGL.GetProgramInfoLog(program, 512, nil, transmute([^]u8)&info_log)
-		fmt.eprintln("ERROR::PROGRAM::LINK_FAIL\n", transmute(cstring)&info_log)
-		panic("")
-	}
-}
-
-get_source_cstring :: proc(source_path: string) -> (source_cstring: cstring) {
-	source :=
-		os.read_entire_file(source_path, runtime.default_allocator()) or_else panic(
-			"failed to read source file",
-		)
-	source_cstring = transmute(cstring)raw_data(source)
-	return source_cstring
-}
-
-frame_buffer_size_callback :: proc "c" (window: glfw.WindowHandle, width, height: c.int) {
+set_frame_buffer_size_callback :: proc "c" (window: glfw.WindowHandle, width, height: c.int) {
 	OpenGL.Viewport(0, 0, width, height)
+}
+
+
+set_proc_address_callback :: proc(p: rawptr, name: cstring) {
+	(cast(^rawptr)p)^ = glfw.GetProcAddress(name)
 }
 
