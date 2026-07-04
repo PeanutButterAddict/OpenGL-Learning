@@ -1,4 +1,4 @@
-package practice
+package texture_rectangle
 
 import "core:c"
 import "core:fmt"
