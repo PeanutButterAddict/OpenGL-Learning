@@ -1,4 +1,4 @@
-package practice
+package shader_shape_function
 
 import "base:runtime"
 import "core:c"
