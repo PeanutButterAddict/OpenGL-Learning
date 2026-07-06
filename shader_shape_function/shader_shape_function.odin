@@ -29,6 +29,7 @@ vertices := [?]Vertex {
 indices := [?]Triangle{{0, 1, 2}, {0, 2, 3}}
 
 main :: proc() {
+	glfw.SetErrorCallback(error_callback)
 
 	if !glfw.Init() do panic("Exit Failure")
 	defer glfw.Terminate()
@@ -47,7 +48,7 @@ main :: proc() {
 	defer glfw.DestroyWindow(window)
 	glfw.MakeContextCurrent(window)
 	glfw.SetFramebufferSizeCallback(window, set_frame_buffer_size_callback)
-	OpenGL.load_up_to(3, 3, set_proc_address_callback)
+	OpenGL.load_up_to(3, 3, glfw.gl_set_proc_address)
 
 	vshader := OpenGL.CreateShader(OpenGL.VERTEX_SHADER)
 	defer OpenGL.DeleteShader(vshader)
@@ -148,11 +149,6 @@ set_frame_buffer_size_callback :: proc "c" (window: glfw.WindowHandle, width, he
 	OpenGL.Viewport(0, 0, width, height)
 }
 
-
-set_proc_address_callback :: proc(p: rawptr, name: cstring) {
-	(cast(^rawptr)p)^ = glfw.GetProcAddress(name)
-}
-
 delete_shader_program :: proc(shader_program: u32) {
 	OpenGL.DeleteProgram(shader_program)
 }
@@ -186,5 +182,10 @@ get_source_cstring :: proc(source_path: string) -> (source_cstring: cstring) {
 		)
 	source_cstring = transmute(cstring)raw_data(source)
 	return source_cstring
+}
+
+error_callback :: proc "c" (code: i32, desc: cstring) {
+	context = runtime.default_context()
+	fmt.println(desc, code)
 }
 
