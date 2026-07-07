@@ -14,8 +14,7 @@ float plot(vec2 st, float y, float width) {
 
 void main() {
     vec2 st = gl_FragCoord.xy / u_resolution;
-    float y = 1.0 - pow(st.x, 0.5);
-    // float y = pow(st.x, 0.5);
+    float y = 1.0 - pow(max(0.0, st.x * 2.0 - 1.0), 2.0);
     float in_curve = plot(st, y, 0.02);
     vec3 bg_color = vec3(y);
     vec3 curve_color = vec3(0.0, 1.0, 0.0);
