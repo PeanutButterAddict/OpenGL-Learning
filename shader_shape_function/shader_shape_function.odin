@@ -40,7 +40,7 @@ main :: proc() {
 	window := glfw.CreateWindow(
 		cast(c.int)resolution.x,
 		cast(c.int)resolution.y,
-		"learning opengl",
+		"Shader Shape Function Test",
 		nil,
 		nil,
 	)
