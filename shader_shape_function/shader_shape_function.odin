@@ -14,10 +14,10 @@ Vertex :: struct {
 	pos: [3]f32,
 }
 
-resolution :: [2]f32{800, 600}
 vshader_source_path :: "vshader.vert"
 fshader_source_path :: "fshader.frag"
 
+resolution := [2]f32{800, 600}
 // NOTE: To do a vertical flip, flip the y in tex coords from 0 -> 1, 1 -> 0
 // To do a horizontal flip, flip the x.
 vertices := [?]Vertex {
@@ -120,6 +120,7 @@ main :: proc() {
 		OpenGL.Clear(OpenGL.COLOR_BUFFER_BIT)
 
 		OpenGL.UseProgram(shader_program)
+		OpenGL.Uniform2f(u_resolution, resolution.x, resolution.y)
 		OpenGL.Uniform1f(u_time, cast(f32)glfw.GetTime())
 		mouse_pos_x, mouse_pos_y := glfw.GetCursorPos(window)
 		OpenGL.Uniform2f(u_mouse, cast(f32)mouse_pos_x, cast(f32)mouse_pos_y)
@@ -133,8 +134,8 @@ main :: proc() {
 			transmute(rawptr)cast(uintptr)0,
 		)
 
-		glfw.PollEvents()
 		glfw.SwapBuffers(window)
+		glfw.PollEvents()
 	}
 }
 
@@ -147,6 +148,7 @@ process_input :: proc(window: glfw.WindowHandle) {
 
 set_frame_buffer_size_callback :: proc "c" (window: glfw.WindowHandle, width, height: c.int) {
 	OpenGL.Viewport(0, 0, width, height)
+	resolution = {cast(f32)width, cast(f32)height}
 }
 
 delete_shader_program :: proc(shader_program: u32) {

@@ -1,6 +1,8 @@
 #version 330 core
 
+#define TAU 6.2831853071
 #define PI 3.14159265359
+#define HALF_PI 1.5707963267948966
 
 out vec4 f_color;
 
@@ -10,23 +12,30 @@ uniform float u_time;
 
 // NOTE: If in curve, will be 1, if not will be 0 for step().
 // Smooth step is step but just interpolates to the edge width.
-float plot(vec2 st, float y, float width) {
-    return smoothstep(y - width, y, st.y) - smoothstep(y, y + width, st.y);
+// pct stands for percentage,
+// This function says
+// "For a fragment what percentage to return?
+// if the normalised y coordinate of the fragment is st.y,
+// percent result y for st.x is pct
+// and the width is w"
+float plot(vec2 st, float pct, float w) {
+    return smoothstep(pct - w, pct, st.y) - smoothstep(pct, pct + w, st.y);
 }
 
 void main() {
     // NOTE: Normalised coordinates
     vec2 st = gl_FragCoord.xy / u_resolution;
     // NOTE: Shape Function
-    float y = pow(st.x, 5.0);
+    float y = (sin(PI * (st.x - 0.5)) * 0.5) + 0.5;
     // NOTE: The curve shows value of y with respective to x.
-    float in_curve = plot(st, y, 0.02);
+    // pct stands for percentage, it is the percentage of colors to mix together.
+    float pct = plot(st, y, 0.02);
     // NOTE: bg_color shows how the function affects colors
     // by setting all 3 rgb with the same values.
     vec3 bg_color = vec3(y);
+    vec3 curve_color = vec3(0.0, 1.0, 0.0);
     // NOTE: (1.0 - in_curve) * bg_color keeps bg_color in bg with keeping the curve clear.
     // + in_curve * curve_color adds the curve with the new color.
-    vec3 curve_color = vec3(0.0, 1.0, 0.0);
-    vec3 color = (1.0 - in_curve) * bg_color + in_curve * curve_color;
+    vec3 color = (1.0 - pct) * bg_color + pct * curve_color;
     f_color = vec4(color, 1.0);
 }

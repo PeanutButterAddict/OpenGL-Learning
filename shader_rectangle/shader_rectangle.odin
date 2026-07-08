@@ -1,4 +1,4 @@
-package practice
+package shader_rectangle
 
 import "base:runtime"
 import "core:c"
