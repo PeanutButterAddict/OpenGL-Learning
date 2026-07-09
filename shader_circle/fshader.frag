@@ -51,6 +51,5 @@ void main() {
     // which no longer covers the whole window but only the bottom left or left.
     st.x *= pw;
     vec3 color = vec3(my_circle(0.2, npos(vec2(0.5), pw), 0.002, st));
-
     f_color = vec4(color, 1.0);
 }
