@@ -26,7 +26,8 @@ void main() {
     // NOTE: Normalised coordinates
     vec2 st = gl_FragCoord.xy / u_resolution;
     // NOTE: Shape Function
-    float y = (sin(PI * (st.x - 0.5)) * 0.5) + 0.5;
+    // float y = (sin(PI * (st.x - 0.5)) * 0.5) + 0.5;
+    float y = sin(st.x) * HALF_PI;
     // NOTE: The curve shows value of y with respective to x.
     // pct stands for percentage, it is the percentage of colors to mix together.
     float pct = plot(st, y, 0.02);
