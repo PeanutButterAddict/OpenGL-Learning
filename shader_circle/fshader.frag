@@ -29,7 +29,7 @@ float my_circle(in float _r, in vec2 _offset, in float _ew, in vec2 _st) {
 
 // NOTE: Bad horrendous inaccurate version by Book of Shaders
 // Also the center would have to be adjusted according to pw later
-// Comment out pw declaration in main in case to not want to.
+// Comment out pw declaration in main to run without adjustment.
 // It has to take a radius of 0.9 to compare to my 0.2
 // which actually represents a 0.2 circle radius on screen.
 float circle(in vec2 _st, in float _radius) {
