@@ -7,3 +7,4 @@ shader_shape_function/shader_shape_function
 shader_rectangle/shader_rectangle
 shader_circle/shader_circle
 shader_distance_field/shader_distance_field
+shader_polar_shapes/shader_polar_shapes

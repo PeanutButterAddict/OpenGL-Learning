@@ -1,4 +1,4 @@
-package practice
+package shader_polar_shapes
 
 import "base:runtime"
 import "core:c"
